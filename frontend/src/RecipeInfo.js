@@ -5,6 +5,7 @@ import {Box, Button, Grid, Popover} from "@mui/material";
 import parse from 'html-react-parser';
 import {isAuth} from "./index";
 import {Form, Formik, Field} from "formik";
+import Reviews from "./Reviews";
 
 export default function RecipeInfo(){
     const {recipe_id}= useParams();
@@ -85,6 +86,9 @@ export default function RecipeInfo(){
                     </div> : <div>
                         <h3>No instructions available!</h3>
                     </div>}
+                </Grid>
+                <Grid item xs={12} sx={{textAlign: "left"}}>
+                    <Reviews recipe_id={recipe_id}/>
                 </Grid>
             </Grid>
         </Box>)
