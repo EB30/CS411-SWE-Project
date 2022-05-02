@@ -213,6 +213,29 @@ def create_list(request):
             return JsonResponse({"error": "Could not add ingredient task"}, status=500)
     return JsonResponse({"status": "Successfully added tasks!"})
 
+
+def get_reviews(request, recipe_id):
+    reviews = Review.objects.filter(recipe_id=recipe_id)
+    all_reviews = []
+    for i in range(len(reviews)):
+        all_reviews += [{"username": reviews[i].username,
+                         "recipe_id": reviews[i].recipe_id,
+                         "review": reviews[i].review}]
+    return JsonResponse({"reviews": all_reviews})
+
+
+def add_review(request):
+    if request.method != "POST":
+        return JsonResponse({"status": "Endpoint is POST only."}, 204)
+    body = json.loads(request.body.decode('utf8').replace("'", ""))
+    username = body["username"]
+    review = body["review"]
+    recipe_id = body["recipe_id"]
+    r = Review(username=username, review=review, recipe_id=recipe_id)
+    r.save()
+    return JsonResponse({"username": username, "review": review, "recipe_id": recipe_id})
+
+
 # For Recipe: Complex Search
 # query_example_1 = "pasta"
 # param_ls1 = [("cuisine", "italian"), ("excludeCuisine", "greek"), ("diet", "vegetarian")]

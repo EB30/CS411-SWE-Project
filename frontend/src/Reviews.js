@@ -26,7 +26,7 @@ export default function Reviews({recipe_id}){
             {
                 method: "POST",
                 body: {
-                    token: localStorage.getItem("token"),
+                    // token: localStorage.getItem("token"),
                     username: username,
                     recipe_id: recipe_id,
                     review: review

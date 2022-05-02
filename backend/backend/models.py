@@ -7,5 +7,6 @@ class User(models.Model):
     token = models.CharField(max_length=10)
 
 class Review(models.Model):
-    username = models.ForeignKey(User, on_delete=models.PROTECT)
+    username = models.CharField(max_length=30)
     review = models.TextField()
+    recipe_id = models.IntegerField()
