@@ -5,16 +5,29 @@ import {Box, Button, Grid, Popover} from "@mui/material";
 import parse from 'html-react-parser';
 import {isAuth} from "./index";
 import {Form, Formik, Field} from "formik";
+import Reviews from "./Reviews";
 
 export default function RecipeInfo(){
     const {recipe_id}= useParams();
     // console.log(recipe_id)
     const [menuOpen, setMenuOpen] = useState(false);
+    const [anchorEl, setAnchorEl] = useState(null);
+
     const { isLoading, isError, data, error } = useQuery(['getInfo', recipe_id], async () => {
         const response = await fetch("http://localhost:8000/information/" + recipe_id)
                return response.json()
             }, {refetchOnWindowFocus: false}
         )
+
+    const handleClick = (event) => {
+        setMenuOpen(true);
+        setAnchorEl(event.currentTarget)
+    }
+
+    const handleClose = () => {
+        setMenuOpen(false)
+        setAnchorEl(null);
+    };
 
     console.log(data)
 
@@ -24,7 +37,9 @@ export default function RecipeInfo(){
         return (<div><h3>Couldn't find recipe with that ID!</h3>
                 <Link to="/">Back to main page?</Link></div>)
     } if(data) {
-        const instructions = data.analyzedInstructions[0];
+
+        console.log(data.analyzedInstructions[0])
+
         return (<Box sx={{mx: 10, px: 5}}>
             <h1> {data.title} </h1>
             <Grid container spacing={2} sx={{mx: 'auto'}} >
@@ -47,13 +62,33 @@ export default function RecipeInfo(){
                     </ul>
                     {isAuth() ?
                         <div>
-                            <Button variant="contained" onClick={() => setMenuOpen(true)}>Add to list</Button>
-                            <Popover id={recipe_id} open={menuOpen}
-                            anchorOrigin={{vertical: 'top', horizontal: 'left'}}>
-                                <RecipeForm ingredients={data.extendedIngredients}/>
+                            <Button variant="contained" onClick={handleClick}>Add to list</Button>
+                            <Popover id={recipe_id} open={menuOpen} anchorEl={anchorEl}
+                                     anchorOrigin={{vertical: 'top', horizontal: 'left'}}
+                                     onClose={handleClose}>
+                                <RecipeForm ingredients={data.extendedIngredients}
+                                            recipe_name={data.title}
+                                            url={data.id}/>
                             </Popover>
                         </div> :
                         <h6>You need to be logged in to add ingredients to your to-do list.</h6>}
+                </Grid>
+                <Grid item xs={6} sx={{textAlign: "left"}}>
+                {data.analyzedInstructions ?
+                    <div>
+                        <h3>Instructions</h3>
+                        {data.analyzedInstructions[0].steps.map((step, index) => (
+                            <div>
+                                <h3>Step {step.number}</h3>
+                                <p>{step.step}</p><br/>
+                            </div>
+                        ))}
+                    </div> : <div>
+                        <h3>No instructions available!</h3>
+                    </div>}
+                </Grid>
+                <Grid item xs={12} sx={{textAlign: "left"}}>
+                    <Reviews recipe_id={recipe_id}/>
                 </Grid>
             </Grid>
         </Box>)
@@ -62,78 +97,72 @@ export default function RecipeInfo(){
     }
 }
 
-function Instructions({instructions}){
-    if (instructions === []){
-        return (
-            <Grid>
-                <h6>No instructions available!</h6>
-            </Grid>
-        )
-    }
-    return (
-    <Grid item xs={6} sx={{textAlign: "left"}}>
-        <h3>Instructions</h3>
-        {instructions.map((step, index) => (
-            <div>
-                <h3>Step {step.number}</h3>
-                <p>{step.step}</p><br/>
-            </div>
-        ))}
-    </Grid>)
-}
-
 function RecipeForm({ingredients, recipe_name, id}){
 
-    const [success, setSuccess] = useState(false);
-    if (success) {
-       return (
-           <div>
-               <h3>Task successfully added!</h3>
-           </div>
-       )
-    }
-    return (
-        <div>
+    const [doSend, setDoSend] = useState(false);
+    const [finalIng, setFinalIng] = useState([]);
+
+    const allIngredientsList = [];
+    ingredients.map((ing) => (allIngredientsList.push(ing.name)))
+
+    const token = localStorage.getItem("token")
+
+    const {isLoading, isError, isSuccess, data, error} = useQuery(["addIngredients", token, id], async () => {
+        const response = await fetch("http://localhost:8000/create_tasks/",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    token: token,
+                    url: window.location.href,
+                    recipe_name: recipe_name,
+                    ingredients: finalIng
+                })
+            })
+        return response.json()
+    }, {refetchOnWindowFocus: false, enabled: doSend})
+
+    console.log(data)
+
+    if(isSuccess){
+        return (<h3>Tasks added!</h3>)
+    } else if(isLoading){
+        return (<h3>Adding tasks...</h3>)
+    } else if(isError){
+        return (<h3>Something wrong happened.</h3>)
+    } else {
+        return (<div>
+            <h3>Add Ingredients to Todolist</h3>
             <Formik initialValues={{
-                all_ingredients: false,
-                ingredients: []
-            }} onSubmit={ async (values) =>{
-                if(!values.get("all_ingredients")){
-                    ingredients = values.get("ingredients")
+                allIngredients: false,
+                checked: []
+            }} onSubmit={(values) => {
+                if(values.allIngredients){
+                    setFinalIng(allIngredientsList)
+                } else {
+                    setFinalIng(values.checked)
                 }
-                const response = await fetch("http://localhost:8000/add_ingredients/",
-                    {
-                        method: "POST",
-                        body: JSON.stringify({
-                            token: localStorage.getItem("token"),
-                            ingredients: ingredients,
-                            recipe_name: recipe_name,
-                            url: "http://localhost:3000/recipe/" + id})
-                    })
-                if(response.status === 200){
-                    setSuccess(true)
-                }}}>
-                <Form>
-                    <label>
-                        <Field type="checkbox" name="all_ingredients">
-                            Select all
-                        </Field>
-                    </label><br/>
-                    {ingredients.map((ingredient) => (
-                        <div>
+                setDoSend(true)
+            }}>
+                {({values }) => (
+                    <Form>
+                        <label>
+                            <Field type="checkbox" name="allIngredients"/>
+                            Add All Ingredients
+                        </label>
+                        <br/><br/>
+                        {values.allIngredients === true ? <div></div> : ingredients.map((ing) => (<div>
                             <label>
-                                <Field type="checkbox" name="ingredients" value={ingredient.name}/>
-                                {ingredient.name[0].toUpperCase() + ingredient.name.substring(1)}
+                                <Field type="checkbox" name="checked" value={ing.name}/>
+                                {ing.name}
                             </label><br/>
-                        </div>
-                    ))}
-                    <label>
-                        <Button color="primary" variant="contained" type="submit">
-                            Add Ingredients
-                        </Button>
-                    </label>
-                </Form>
+                            </div>
+                        ))}
+                        <Button variant="contained" type="submit">Add to List</Button>
+                    </Form>
+                )}
             </Formik>
-        </div>
-    )
+        </div>)
+    }
+
+
 }

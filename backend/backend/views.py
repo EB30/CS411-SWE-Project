@@ -141,15 +141,16 @@ def auth(request):
                 req = requests.post("https://todoist.com/oauth/access_token", data={
                     "client_id": os.environ.get("TODOIST_CLIENT_ID"),
                     "client_secret": os.environ.get("TODOIST_CLIENT_SECRET"),
-                    "code": body["code"],
-                    "grant_type": "authorization_code"
+                    "code": body["code"]
                 })
                 info = req.json()
+                print(info)
                 if "error" in info:
                     return JsonResponse({"error": "Authorization failed"}, status=401)
-                u = User(token=info["access_token"])
+                if not User.objects.filter(token=info["access_token"]).exists():
+                    u = User(token=info["access_token"])
+                    u.save()
                 r.delete()
-                u.save()
                 return JsonResponse(info)
             else:
                 return JsonResponse({"error": "State not found"}, status=401)
@@ -178,33 +179,62 @@ def create_list(request):
         return JsonResponse({"status": "POST method only."}, status=204)
 
     try:
-        body = json.loads(requests.body.decode('utf8').replace("'", ""))
+        print(request.body)
+        body = json.loads(request.body.decode('utf8').replace("'", ""))
         test_token = User.objects.filter(token=body["token"]).exists()
         if not test_token:
-            return JsonResponse({"error": "Token not found"}, status=404)
+            return JsonResponse({"error": "Token not found"}, status=401)
         recipe_name = body["recipe_name"]
         ingredients = body["ingredients"]
         url = body["url"]
     except KeyError:
-        return JsonResponse({"error": "Payload requires recipe name, ingredients, an access token, and URL."}, status=401)
+        return JsonResponse({"error": "Payload requires recipe name, ingredients, an access token, and URL."},
+                            status=422)
 
-    header = {"Authorization": body["token"]}
+    headers = {"Authorization": "Bearer " + body["token"],
+               "Content-Type": "application/json",
+               "Access-Control-Allow-Origin": "*"}
+    print(headers)
 
-    r2 = requests.post("https://api.todoist.com/rest/v2/tasks",
-                       data={"content": recipe_name, "description": url},
-                       headers=header)
+    r2 = requests.request("POST", "https://api.todoist.com/rest/v1/tasks",
+                          json={"content": recipe_name, "description": url},
+                          headers=headers)
+
     if r2.status_code != 200:
         return JsonResponse({"error": "Could not add recipe task"}, status=500)
     info = r2.json()
 
     parent_id = info["id"]
     for ingredient in ingredients:
-        post_subtask = requests.post("https://api.todoist.com/rest/v2/tasks",
-                                     data={"content": ingredient, "parent_id": parent_id},
-                                     headers=header)
+        post_subtask = requests.post("https://api.todoist.com/rest/v1/tasks",
+                                     json={"content": ingredient, "parent_id": parent_id},
+                                     headers=headers)
         if post_subtask.status_code != 200:
             return JsonResponse({"error": "Could not add ingredient task"}, status=500)
     return JsonResponse({"status": "Successfully added tasks!"})
+
+
+def get_reviews(request, recipe_id):
+    reviews = Review.objects.filter(recipe_id=recipe_id)
+    all_reviews = []
+    for i in range(len(reviews)):
+        all_reviews += [{"username": reviews[i].username,
+                         "recipe_id": reviews[i].recipe_id,
+                         "review": reviews[i].review}]
+    return JsonResponse({"reviews": all_reviews})
+
+
+def add_review(request):
+    if request.method != "POST":
+        return JsonResponse({"status": "Endpoint is POST only."}, 204)
+    body = json.loads(request.body.decode('utf8').replace("'", ""))
+    username = body["username"]
+    review = body["review"]
+    recipe_id = body["recipe_id"]
+    r = Review(username=username, review=review, recipe_id=recipe_id)
+    r.save()
+    return JsonResponse({"username": username, "review": review, "recipe_id": recipe_id})
+
 
 # For Recipe: Complex Search
 # query_example_1 = "pasta"
