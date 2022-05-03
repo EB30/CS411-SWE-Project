@@ -1,8 +1,8 @@
 import './App.css';
 import React, {Component, useState} from "react";
-import {QueryClient, QueryClientProvider, useQuery, useQueryClient} from "react-query";
-import {Box, Button, Link, TextField, Stack, Divider, Pagination, PaginationItem} from "@mui/material";
-import {Link as RouterLink} from 'react-router-dom';
+import {useQuery, useQueryClient} from "react-query";
+import {Box, Button, TextField, Stack, Divider, Pagination} from "@mui/material";
+import {Link} from 'react-router-dom';
 import {ReactQueryDevtools} from "react-query/devtools";
 
 /**
@@ -106,7 +106,7 @@ function Recipe({query}){
                                     {/* TODO: get rid of that stupid lower part because of the stupid image that exists! */}
                                     <img style={{width: 'auto', maxHeight: '50%'}} src={recipe.image}/>
                                     <h2>{recipe.title}</h2>
-                                    <Link component={RouterLink} to={"/recipe/" + recipe.id}>Go to Recipe</Link>
+                                    <Button component={Link} to={"/recipe/" + recipe.id} variant="contained" color="primary">Go to Recipe</Button>
                                 </Stack>
                             </Box>
                         </div>

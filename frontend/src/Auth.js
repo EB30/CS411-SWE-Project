@@ -1,15 +1,12 @@
-import {useSearchParams} from "react-router-dom";
+import {Link, useSearchParams} from "react-router-dom";
 import React, {useState} from 'react';
 import {useQuery} from "react-query";
 import {isAuth} from "./index";
+import {Button} from "@mui/material";
 
 export default function Auth(){
     const [searchParams, setSearchParams] = useSearchParams();
-    const [reAuth, setReAuth] = useState(true);
-
-    if(isAuth()){
-        setReAuth(false);
-    }
+    const [reAuth, setReAuth] = useState(!isAuth());
 
     /**
      * Request: "localhost:8000/authorize" with code, secret string to verify
@@ -30,9 +27,7 @@ export default function Auth(){
     const { isLoading, isError, data, error } = useQuery(['authorize', searchParams.get("code")],async () => {
          if(localStorage.getItem("token")){
              return {"logged_in": true}
-         }
-
-         if(searchParams.get("error") != null){
+         } if(searchParams.get("error") != null){
              return {"error": searchParams.get("error")}
          }
 
@@ -51,12 +46,15 @@ export default function Auth(){
      }, { refetchOnWindowFocus: false, enabled: reAuth, retry: false })
 
     if(localStorage.getItem("token")){
-        return (<h3>Successfully authorized! You're now logged in!</h3>)
+        return (<div>
+            <h3>Successfully authorized! You're now logged in!</h3>
+            <Button component={Link} to="/" variant="contained" color="primary">
+                Return to Home Page
+            </Button>
+        </div>)
     }
 
-    if(data && data === {}){
-        return <div><h3>Whoops! Something wrong happened!</h3></div>
-    } if(searchParams.get("error")) {
+    if(searchParams.get("error")) {
         return <div><h3>Whoops! Authentication failed!</h3></div>
     } if(isLoading){
         return (<h3>Authorizing...</h3>)
@@ -64,6 +62,6 @@ export default function Auth(){
         return (<h3>Error! {error}</h3>)
     } else {
         localStorage.setItem("token", data.access_token)
-        window.location.reload();
+        window.location.reload()
     }
 }
